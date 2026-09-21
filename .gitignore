@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+frontend/.env
+frontend/.env.*
+!.env.example
+
+frontend/node_modules/
+frontend/dist/
+
+*.log
