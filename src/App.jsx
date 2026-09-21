@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from './lib/supabase'
-import { BrowserRouter, Routes, Route,Link } from "react-router-dom";
-import Signup from "./pages/Signup";
+import { HashRouter, Routes, Route, Link } from "react-router-dom";import Signup from "./pages/Signup";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Scores from "./pages/Scores";
@@ -380,20 +379,20 @@ useEffect(() => {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/scores" element={<Scores />} />
-        <Route path="/charities" element={<Charities />} />
-        <Route path="/subscribe" element={<Subscribe />} />
-        <Route path="/draws" element={<Draws />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin-winners" element={<AdminWinners />} />
-      </Routes>
-    </BrowserRouter>
+    <HashRouter>
+  <Routes>
+    <Route path="/" element={<Home />} />
+    <Route path="/signup" element={<Signup />} />
+    <Route path="/login" element={<Login />} />
+    <Route path="/dashboard" element={<Dashboard />} />
+    <Route path="/scores" element={<Scores />} />
+    <Route path="/charities" element={<Charities />} />
+    <Route path="/subscribe" element={<Subscribe />} />
+    <Route path="/draws" element={<Draws />} />
+    <Route path="/admin" element={<AdminDashboard />} />
+    <Route path="/admin-winners" element={<AdminWinners />} />
+  </Routes>
+</HashRouter>
   );
 }
 
