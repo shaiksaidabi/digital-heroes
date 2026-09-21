@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   CalendarDays,
-  Check,
   CircleDollarSign,
   Loader2,
   Trophy,
+  Upload,
+  CheckCircle2,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -15,9 +16,11 @@ function Draws() {
 
   const [draws, setDraws] = useState([]);
   const [entries, setEntries] = useState([]);
+  const [winners, setWinners] = useState([]);
   const [selectedNumbers, setSelectedNumbers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -58,6 +61,16 @@ function Draws() {
         if (entryError) throw entryError;
 
         setEntries(entryData || []);
+
+        const { data: winnerData, error: winnerError } = await supabase
+          .from("winners")
+          .select("*")
+          .eq("user_id", user.id)
+          .in("draw_id", ids);
+
+        if (winnerError) throw winnerError;
+
+        setWinners(winnerData || []);
       }
     } catch (err) {
       console.error(err);
@@ -83,7 +96,9 @@ function Draws() {
       return;
     }
 
-    setSelectedNumbers([...selectedNumbers, number].sort((a, b) => a - b));
+    setSelectedNumbers(
+      [...selectedNumbers, number].sort((a, b) => a - b)
+    );
   };
 
   const submitEntry = async (draw) => {
@@ -137,8 +152,100 @@ function Draws() {
     }
   };
 
+  const createWinner = async (drawId) => {
+    const { data, error } = await supabase.rpc(
+      "create_winner_for_entry",
+      {
+        p_draw_id: drawId,
+      }
+    );
+
+    if (error) throw error;
+
+    return data;
+  };
+
+  const uploadProof = async (draw) => {
+    setMessage("");
+    setError("");
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        navigate("/login");
+        return;
+      }
+
+      setUploading(true);
+
+      const winnerId = await createWinner(draw.id);
+
+      const input = document.getElementById(
+        `proof-${draw.id}`
+      );
+
+      if (!input?.files?.length) {
+        setError("Please select a proof image.");
+        return;
+      }
+
+      const file = input.files[0];
+
+      if (!file.type.startsWith("image/")) {
+        setError("Please upload an image file.");
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        setError("Image must be smaller than 5MB.");
+        return;
+      }
+
+      const extension = file.name.split(".").pop();
+
+      const filePath =
+        `${user.id}/${winnerId}-${Date.now()}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("winner-proofs")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { error: updateError } = await supabase
+        .from("winners")
+        .update({
+          proof_url: filePath,
+        })
+        .eq("id", winnerId)
+        .eq("user_id", user.id);
+
+      if (updateError) throw updateError;
+
+      setMessage(
+        "Proof uploaded successfully. Your winner verification is now pending."
+      );
+
+      await loadDraws();
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const getEntry = (drawId) =>
     entries.find((entry) => entry.draw_id === drawId);
+
+  const getWinner = (drawId) =>
+    winners.find((winner) => winner.draw_id === drawId);
 
   const formatMonth = (date) =>
     new Date(date).toLocaleDateString("en-IN", {
@@ -206,7 +313,8 @@ function Draws() {
         </p>
 
         {message && (
-          <div className="mt-6 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl p-4">
+          <div className="mt-6 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl p-4 flex gap-3 items-center">
+            <CheckCircle2 className="w-5 h-5" />
             {message}
           </div>
         )}
@@ -242,6 +350,7 @@ function Draws() {
           <div className="space-y-6">
             {draws.map((draw) => {
               const entry = getEntry(draw.id);
+              const winner = getWinner(draw.id);
 
               return (
                 <div
@@ -269,7 +378,7 @@ function Draws() {
                       Winning numbers
                     </p>
 
-                    <div className="flex gap-3 mt-4">
+                    <div className="flex gap-3 mt-4 flex-wrap">
                       {draw.numbers.map((number, index) => (
                         <div
                           key={index}
@@ -291,26 +400,27 @@ function Draws() {
                         </p>
 
                         <div className="grid grid-cols-5 sm:grid-cols-9 md:grid-cols-15 gap-2 mt-5">
-                          {Array.from({ length: 45 }, (_, i) => i + 1).map(
-                            (number) => {
-                              const selected =
-                                selectedNumbers.includes(number);
+                          {Array.from(
+                            { length: 45 },
+                            (_, i) => i + 1
+                          ).map((number) => {
+                            const selected =
+                              selectedNumbers.includes(number);
 
-                              return (
-                                <button
-                                  key={number}
-                                  onClick={() => toggleNumber(number)}
-                                  className={`h-10 rounded-lg font-semibold transition ${
-                                    selected
-                                      ? "bg-emerald-400 text-slate-950"
-                                      : "bg-slate-100 hover:bg-slate-200"
-                                  }`}
-                                >
-                                  {number}
-                                </button>
-                              );
-                            }
-                          )}
+                            return (
+                              <button
+                                key={number}
+                                onClick={() => toggleNumber(number)}
+                                className={`h-10 rounded-lg font-semibold transition ${
+                                  selected
+                                    ? "bg-emerald-400 text-slate-950"
+                                    : "bg-slate-100 hover:bg-slate-200"
+                                }`}
+                              >
+                                {number}
+                              </button>
+                            );
+                          })}
                         </div>
 
                         <div className="flex items-center justify-between mt-5">
@@ -326,7 +436,9 @@ function Draws() {
                             disabled={saving}
                             className="bg-slate-950 text-white px-6 py-3 rounded-xl font-semibold disabled:opacity-50"
                           >
-                            {saving ? "Submitting..." : "Submit Entry"}
+                            {saving
+                              ? "Submitting..."
+                              : "Submit Entry"}
                           </button>
                         </div>
                       </div>
@@ -336,7 +448,7 @@ function Draws() {
                           Your entry
                         </p>
 
-                        <div className="flex gap-2 mt-3">
+                        <div className="flex gap-2 mt-3 flex-wrap">
                           {entry.numbers.map((number, index) => (
                             <span
                               key={index}
@@ -352,13 +464,63 @@ function Draws() {
                         </p>
 
                         {entry.match_count >= 3 && (
-                          <p className="text-emerald-700 mt-1">
-                            Potential prize: $
-                            {getPrize(
-                              draw.prize_pool,
-                              entry.match_count
-                            ).toLocaleString()}
-                          </p>
+                          <div className="mt-5">
+                            <p className="text-emerald-700 font-semibold">
+                              Potential prize: $
+                              {getPrize(
+                                draw.prize_pool,
+                                entry.match_count
+                              ).toLocaleString()}
+                            </p>
+
+                            {!winner ? (
+                              <div className="mt-5">
+                                <label className="block text-sm font-semibold mb-2">
+                                  Upload winning proof
+                                </label>
+
+                                <input
+                                  id={`proof-${draw.id}`}
+                                  type="file"
+                                  accept="image/*"
+                                  className="block w-full text-sm border border-slate-300 rounded-xl p-3 bg-white"
+                                />
+
+                                <button
+                                  onClick={() =>
+                                    uploadProof(draw)
+                                  }
+                                  disabled={uploading}
+                                  className="mt-3 flex items-center gap-2 bg-slate-950 text-white px-5 py-3 rounded-xl font-semibold disabled:opacity-50"
+                                >
+                                  <Upload className="w-4 h-4" />
+                                  {uploading
+                                    ? "Uploading..."
+                                    : "Upload Proof"}
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="mt-5 p-4 rounded-xl bg-white border border-emerald-200">
+                                <p className="font-semibold text-slate-900">
+                                  Proof submitted
+                                </p>
+
+                                <p className="text-sm text-slate-500 mt-1">
+                                  Verification:{" "}
+                                  <strong>
+                                    {winner.verification_status}
+                                  </strong>
+                                </p>
+
+                                <p className="text-sm text-slate-500">
+                                  Payment:{" "}
+                                  <strong>
+                                    {winner.payment_status}
+                                  </strong>
+                                </p>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
