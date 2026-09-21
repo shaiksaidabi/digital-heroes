@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from './lib/supabase'
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route,Link } from "react-router-dom";
 import Signup from "./pages/Signup";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -65,9 +65,12 @@ useEffect(() => {
               Charities
             </a>
 
-            <button className="rounded-full bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300">
-              Get started
-            </button>
+            <Link
+  to="/signup"
+  className="rounded-full bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300"
+>
+  Get started
+</Link>
           </div>
 
           <button
@@ -124,17 +127,22 @@ useEffect(() => {
                 </p>
 
                 <div className="mt-9 flex flex-col gap-4 sm:flex-row">
-                  <button className="group flex items-center justify-center gap-2 rounded-full bg-emerald-400 px-7 py-4 font-semibold text-slate-950 transition hover:bg-emerald-300">
-                    Start your journey
+                  <Link
+                  to="/signup"
+                   className="group flex items-center justify-center gap-2 rounded-full bg-emerald-400 px-7 py-4 font-semibold text-slate-950 transition hover:bg-emerald-300"
+                                                                                                                                                                       >
                     <ArrowRight
                       size={18}
                       className="transition group-hover:translate-x-1"
                     />
-                  </button>
+                   </Link>
 
-                  <button className="rounded-full border border-white/15 px-7 py-4 font-semibold text-white transition hover:bg-white/5">
-                    Explore charities
-                  </button>
+                  <Link
+                               to="/charities"
+                      className="rounded-full border border-white/15 px-7 py-4 font-semibold text-white transition hover:bg-white/5"
+                         >
+                          Explore charities
+                         </Link>
                 </div>
               </div>
 
@@ -337,10 +345,13 @@ useEffect(() => {
                 </p>
               </div>
 
-              <button className="flex shrink-0 items-center justify-center gap-2 rounded-full bg-slate-950 px-7 py-4 font-semibold text-white transition hover:bg-slate-800">
-                Get started
-                <ArrowRight size={18} />
-              </button>
+              <Link
+                       to="/signup"
+                className="flex shrink-0 items-center justify-center gap-2 rounded-full bg-slate-950 px-7 py-4 font-semibold text-white transition hover:bg-slate-800"
+                 >
+                      Get started
+                    <ArrowRight size={18} />
+                   </Link>
 
             </div>
           </div>
