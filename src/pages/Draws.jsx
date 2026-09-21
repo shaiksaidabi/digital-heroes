@@ -24,9 +24,19 @@ function Draws() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
+ useEffect(() => {
+  loadDraws();
+
+  const handleFocus = () => {
     loadDraws();
-  }, []);
+  };
+
+  window.addEventListener("focus", handleFocus);
+
+  return () => {
+    window.removeEventListener("focus", handleFocus);
+  };
+}, []);
 
   const loadDraws = async () => {
     try {
@@ -500,25 +510,46 @@ function Draws() {
                                 </button>
                               </div>
                             ) : (
-                              <div className="mt-5 p-4 rounded-xl bg-white border border-emerald-200">
-                                <p className="font-semibold text-slate-900">
-                                  Proof submitted
-                                </p>
+                             <div className="mt-5 p-4 rounded-xl bg-white border border-emerald-200">
+  <p className="font-semibold text-slate-900">
+    Proof submitted
+  </p>
 
-                                <p className="text-sm text-slate-500 mt-1">
-                                  Verification:{" "}
-                                  <strong>
-                                    {winner.verification_status}
-                                  </strong>
-                                </p>
+  <p className="text-sm text-slate-500 mt-1">
+    Verification:{" "}
+    <strong
+      className={
+        winner.verification_status === "approved"
+          ? "text-emerald-600"
+          : winner.verification_status === "rejected"
+          ? "text-red-600"
+          : "text-amber-600"
+      }
+    >
+      {winner.verification_status}
+    </strong>
+  </p>
 
-                                <p className="text-sm text-slate-500">
-                                  Payment:{" "}
-                                  <strong>
-                                    {winner.payment_status}
-                                  </strong>
-                                </p>
-                              </div>
+  <p className="text-sm text-slate-500">
+    Payment:{" "}
+    <strong
+      className={
+        winner.payment_status === "paid"
+          ? "text-emerald-600"
+          : "text-amber-600"
+      }
+    >
+      {winner.payment_status}
+    </strong>
+  </p>
+
+  <button
+    onClick={loadDraws}
+    className="mt-3 text-sm font-semibold text-slate-700 underline"
+  >
+    Refresh status
+  </button>
+</div>
                             )}
                           </div>
                         )}
