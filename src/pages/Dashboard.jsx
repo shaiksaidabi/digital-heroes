@@ -1,0 +1,404 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Heart,
+  Trophy,
+  Target,
+  CalendarDays,
+  LogOut,
+  Plus,
+  ArrowRight,
+  Loader2,
+} from "lucide-react";
+import { supabase } from "../lib/supabase";
+
+function Dashboard() {
+  const navigate = useNavigate();
+
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [scores, setScores] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+
+  const loadDashboard = async () => {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        navigate("/login");
+        return;
+      }
+
+      setUser(user);
+
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      setProfile(profileData);
+
+      const { data: scoresData } = await supabase
+        .from("scores")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("score_date", { ascending: false })
+        .limit(5);
+
+      setScores(scoresData || []);
+    } catch (error) {
+      console.error("Dashboard error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/login");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+        <div className="flex items-center gap-3">
+          <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
+          Loading dashboard...
+        </div>
+      </div>
+    );
+  }
+
+  const displayName =
+    profile?.full_name ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split("@")[0] ||
+    "Hero";
+
+  const averageScore =
+    scores.length > 0
+      ? (
+          scores.reduce((sum, item) => sum + item.score, 0) / scores.length
+        ).toFixed(1)
+      : "—";
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white">
+
+      {/* NAVBAR */}
+      <nav className="bg-slate-950 border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="h-20 flex items-center justify-between">
+
+            <button
+              onClick={() => navigate("/")}
+              className="flex items-center gap-3"
+            >
+              <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center">
+                <Heart className="w-5 h-5 text-slate-950 fill-slate-950" />
+              </div>
+
+              <div className="text-left">
+                <div className="font-bold text-xl">
+                  Digital <span className="text-emerald-400">Heroes</span>
+                </div>
+
+                <div className="text-xs text-slate-400">
+                  Your dashboard
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/10 text-sm hover:bg-emerald-500/10 hover:border-emerald-500/40 transition"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+
+          </div>
+        </div>
+      </nav>
+
+      {/* MAIN */}
+      <main className="max-w-7xl mx-auto px-6 lg:px-8 py-10">
+
+        {/* WELCOME */}
+        <div className="mb-10">
+          <p className="text-sm font-semibold text-emerald-400 uppercase tracking-wider">
+            Member dashboard
+          </p>
+
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
+            Welcome,{" "}
+            <span className="text-emerald-400">
+              {displayName.split(" ")[0]}
+            </span>{" "}
+            👋
+          </h1>
+
+          <p className="text-slate-400 mt-3 text-lg">
+            Track your game, support your cause, and follow your journey.
+          </p>
+        </div>
+
+        {/* TOP CARDS */}
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
+
+          {/* SUBSCRIPTION */}
+          <div className="bg-white text-slate-950 rounded-3xl border border-white/10 p-6 shadow-xl shadow-black/20">
+
+            <div className="flex items-center justify-between">
+              <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center">
+                <CalendarDays className="w-5 h-5 text-emerald-600" />
+              </div>
+
+              <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-semibold">
+                Not active
+              </span>
+            </div>
+
+            <p className="text-sm text-slate-500 mt-6">
+              Subscription
+            </p>
+
+            <h2 className="text-2xl font-bold mt-1">
+              Choose a plan
+            </h2>
+
+            <button
+              onClick={() => navigate("/subscribe")}
+              className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-emerald-600 hover:text-emerald-700 hover:gap-3 transition-all"
+            >
+              Subscribe
+              <ArrowRight className="w-4 h-4" />
+            </button>
+
+          </div>
+
+          {/* SCORES */}
+          <div className="bg-white text-slate-950 rounded-3xl border border-white/10 p-6 shadow-xl shadow-black/20">
+
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center">
+              <Target className="w-5 h-5 text-emerald-600" />
+            </div>
+
+            <p className="text-sm text-slate-500 mt-6">
+              Stableford scores
+            </p>
+
+            <div className="flex items-end gap-2 mt-1">
+              <h2 className="text-3xl font-bold">
+                {scores.length}/5
+              </h2>
+
+              <span className="text-sm text-slate-500 mb-1">
+                recorded
+              </span>
+            </div>
+
+            <p className="text-sm text-slate-500 mt-2">
+              Average:{" "}
+              <span className="font-semibold text-emerald-600">
+                {averageScore}
+              </span>
+            </p>
+
+          </div>
+
+          {/* CHARITY */}
+          <div className="bg-emerald-500 text-slate-950 rounded-3xl border border-emerald-400 p-6 shadow-xl shadow-emerald-500/10">
+
+            <div className="w-11 h-11 rounded-xl bg-slate-950/10 flex items-center justify-center">
+              <Heart className="w-5 h-5" />
+            </div>
+
+            <p className="text-sm opacity-70 mt-6">
+              Charity
+            </p>
+
+            <h2 className="text-2xl font-bold mt-1">
+              Not selected
+            </h2>
+
+            <button
+              onClick={() => navigate("/charities")}
+              className="mt-5 inline-flex items-center gap-2 text-sm font-semibold hover:gap-3 transition-all"
+            >
+              Choose charity
+              <ArrowRight className="w-4 h-4" />
+            </button>
+
+          </div>
+
+        </div>
+
+        {/* SCORE SECTION */}
+        <div className="bg-white text-slate-950 rounded-3xl border border-white/10 overflow-hidden shadow-xl shadow-black/20">
+
+          <div className="p-6 md:p-8 border-b border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
+            <div>
+              <div className="flex items-center gap-3">
+
+                <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center">
+                  <Trophy className="w-5 h-5 text-emerald-600" />
+                </div>
+
+                <div>
+                  <h2 className="text-xl font-bold">
+                    Your latest scores
+                  </h2>
+
+                  <p className="text-sm text-slate-500">
+                    Your five most recent Stableford scores
+                  </p>
+                </div>
+
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigate("/scores")}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-950 text-white font-semibold hover:bg-emerald-600 transition"
+            >
+              <Plus className="w-4 h-4" />
+              Add score
+            </button>
+
+          </div>
+
+          {scores.length === 0 ? (
+            <div className="p-10 text-center">
+
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-50 flex items-center justify-center">
+                <Target className="w-7 h-7 text-emerald-500" />
+              </div>
+
+              <h3 className="text-xl font-bold mt-5">
+                No scores yet
+              </h3>
+
+              <p className="text-slate-500 mt-2 max-w-md mx-auto">
+                Add your first Stableford score to start building your
+                performance history.
+              </p>
+
+              <button
+                onClick={() => navigate("/scores")}
+                className="mt-6 px-6 py-3 rounded-xl bg-slate-950 text-white font-semibold hover:bg-emerald-600 transition"
+              >
+                Add your first score
+              </button>
+
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+
+              {scores.map((score, index) => (
+                <div
+                  key={score.id}
+                  className="p-6 flex items-center justify-between hover:bg-emerald-50/40 transition"
+                >
+
+                  <div className="flex items-center gap-4">
+
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                      {index + 1}
+                    </div>
+
+                    <div>
+                      <p className="font-semibold">
+                        Stableford Score
+                      </p>
+
+                      <p className="text-sm text-slate-500">
+                        {new Date(
+                          score.score_date
+                        ).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
+
+                  </div>
+
+                  <div className="text-2xl font-bold text-emerald-600">
+                    {score.score}
+                  </div>
+
+                </div>
+              ))}
+
+            </div>
+          )}
+
+        </div>
+
+        {/* QUICK ACTIONS */}
+        <div className="grid md:grid-cols-3 gap-6 mt-8">
+
+          <button
+            onClick={() => navigate("/scores")}
+            className="text-left bg-slate-900 text-white rounded-3xl p-6 border border-white/10 hover:border-emerald-500/40 hover:bg-slate-800 transition"
+          >
+            <Target className="w-6 h-6 mb-5 text-emerald-400" />
+
+            <h3 className="text-xl font-bold">
+              Manage scores
+            </h3>
+
+            <p className="text-slate-400 text-sm mt-2">
+              Add, edit and manage your latest five scores.
+            </p>
+          </button>
+
+          <button
+            onClick={() => navigate("/charities")}
+            className="text-left bg-white text-slate-950 border border-white rounded-3xl p-6 hover:border-emerald-400 transition"
+          >
+            <Heart className="w-6 h-6 mb-5 text-emerald-600" />
+
+            <h3 className="text-xl font-bold">
+              Explore charities
+            </h3>
+
+            <p className="text-slate-500 text-sm mt-2">
+              Discover causes and choose where your impact goes.
+            </p>
+          </button>
+
+          <button
+            onClick={() => navigate("/draws")}
+            className="text-left bg-white text-slate-950 border border-white rounded-3xl p-6 hover:border-emerald-400 transition"
+          >
+            <Trophy className="w-6 h-6 mb-5 text-emerald-600" />
+
+            <h3 className="text-xl font-bold">
+              View draws
+            </h3>
+
+            <p className="text-slate-500 text-sm mt-2">
+              Follow upcoming draws, matches and winnings.
+            </p>
+          </button>
+
+        </div>
+
+      </main>
+    </div>
+  );
+}
+
+export default Dashboard;
