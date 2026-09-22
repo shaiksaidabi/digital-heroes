@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useRazorpay } from "react-razorpay";
 import {
   ArrowLeft,
   Check,
@@ -12,6 +13,12 @@ import { supabase } from "../lib/supabase";
 function Subscribe() {
   const navigate = useNavigate();
 
+  const {
+    error: razorpayError,
+    isLoading: razorpayLoading,
+    Razorpay,
+  } = useRazorpay();
+
   const [plan, setPlan] = useState("monthly");
   const [charities, setCharities] = useState([]);
   const [charityId, setCharityId] = useState("");
@@ -23,8 +30,14 @@ function Subscribe() {
   const amount = plan === "monthly" ? 19 : 190;
 
   useEffect(() => {
-    loadCharities();
-  }, []);
+  loadCharities();
+  loadSelectedCharity();
+}, []);
+  useEffect(() => {
+    if (razorpayError) {
+      console.error("Razorpay error:", razorpayError);
+    }
+  }, [razorpayError]);
 
   const loadCharities = async () => {
     const { data, error } = await supabase
@@ -44,6 +57,107 @@ function Subscribe() {
       setCharityId(data[0].id);
     }
   };
+  const loadSelectedCharity = async () => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const selectedCharityId =
+    user?.user_metadata?.charity_id;
+
+  if (selectedCharityId) {
+    setCharityId(selectedCharityId);
+  }
+};
+
+  const createRazorpayOrder = async () => {
+    const amountInPaise = amount * 100;
+
+    const { data, error } = await supabase.functions.invoke(
+      "razorpay-payment",
+      {
+        body: {
+          action: "create_order",
+          amount: amountInPaise,
+          currency: "INR",
+          receipt: `DH_${Date.now()}`,
+        },
+      }
+    );
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!data?.id) {
+      throw new Error(
+        data?.error || "Unable to create Razorpay order."
+      );
+    }
+
+    return data;
+  };
+
+  const verifyPayment = async (paymentResponse) => {
+    const { data, error } = await supabase.functions.invoke(
+      "razorpay-payment",
+      {
+        body: {
+          action: "verify_payment",
+          razorpay_order_id:
+            paymentResponse.razorpay_order_id,
+          razorpay_payment_id:
+            paymentResponse.razorpay_payment_id,
+          razorpay_signature:
+            paymentResponse.razorpay_signature,
+        },
+      }
+    );
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!data?.verified) {
+      throw new Error("Payment verification failed.");
+    }
+
+    return true;
+  };
+
+  const saveSubscription = async (user) => {
+    const startDate = new Date();
+    const renewalDate = new Date(startDate);
+
+    if (plan === "monthly") {
+      renewalDate.setMonth(renewalDate.getMonth() + 1);
+    } else {
+      renewalDate.setFullYear(
+        renewalDate.getFullYear() + 1
+      );
+    }
+
+    const { error } = await supabase
+      .from("subscriptions")
+      .insert({
+        user_id: user.id,
+        plan,
+        amount,
+        status: "active",
+        charity_id: charityId,
+        charity_percentage: percentage,
+        start_date: startDate
+          .toISOString()
+          .split("T")[0],
+        renewal_date: renewalDate
+          .toISOString()
+          .split("T")[0],
+      });
+
+    if (error) {
+      throw error;
+    }
+  };
 
   const handleSubscribe = async () => {
     setMessage("");
@@ -51,6 +165,11 @@ function Subscribe() {
 
     if (!charityId) {
       setError("Please select a charity.");
+      return;
+    }
+
+    if (!Razorpay) {
+      setError("Razorpay is still loading. Please try again.");
       return;
     }
 
@@ -66,39 +185,93 @@ function Subscribe() {
         return;
       }
 
-      const startDate = new Date();
-      const renewalDate = new Date(startDate);
+      // 1. Create Razorpay order
+      const order = await createRazorpayOrder();
 
-      if (plan === "monthly") {
-        renewalDate.setMonth(renewalDate.getMonth() + 1);
-      } else {
-        renewalDate.setFullYear(renewalDate.getFullYear() + 1);
-      }
+      // 2. Open Razorpay Checkout
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
 
-      const { error: insertError } = await supabase
-        .from("subscriptions")
-        .insert({
-          user_id: user.id,
-          plan,
-          amount,
-          status: "active",
-          charity_id: charityId,
-          charity_percentage: percentage,
-          start_date: startDate.toISOString().split("T")[0],
-          renewal_date: renewalDate.toISOString().split("T")[0],
-        });
+        amount: order.amount,
+        currency: order.currency,
 
-      if (insertError) {
-        throw insertError;
-      }
+        name: "Digital Heroes",
+        description:
+          plan === "monthly"
+            ? "Monthly Digital Heroes Subscription"
+            : "Yearly Digital Heroes Subscription",
 
-      setMessage(
-        "Subscription activated successfully! Payment integration can be connected next."
+        order_id: order.id,
+
+        prefill: {
+          name:
+            user.user_metadata?.full_name || "",
+          email: user.email || "",
+        },
+
+        theme: {
+          color: "#34d399",
+        },
+
+        handler: async function (response) {
+          try {
+            setMessage("Verifying payment...");
+            setError("");
+
+            // 3. Verify payment on server
+            await verifyPayment(response);
+
+            // 4. Save subscription only after verification
+            await saveSubscription(user);
+
+            setMessage(
+              "Payment successful! Your subscription is now active."
+            );
+          } catch (err) {
+            console.error(err);
+            setError(
+              err.message ||
+                "Payment verification failed."
+            );
+          } finally {
+            setSaving(false);
+          }
+        },
+
+        modal: {
+          ondismiss: function () {
+            setSaving(false);
+            setMessage("");
+          },
+        },
+      };
+
+      const razorpay = new Razorpay(options);
+
+      razorpay.on(
+        "payment.failed",
+        function (response) {
+          console.error(
+            "Payment failed:",
+            response.error
+          );
+
+          setError(
+            response.error?.description ||
+              "Payment failed. Please try again."
+          );
+
+          setSaving(false);
+        }
       );
+
+      razorpay.open();
     } catch (err) {
       console.error(err);
-      setError(err.message);
-    } finally {
+      setError(
+        err.message ||
+          "Unable to start payment."
+      );
       setSaving(false);
     }
   };
@@ -170,10 +343,12 @@ function Subscribe() {
                 : "border-slate-200 bg-white"
             }`}
           >
-            <p className="text-slate-500">Monthly</p>
+            <p className="text-slate-500">
+              Monthly
+            </p>
 
             <h2 className="text-4xl font-bold mt-2">
-              $19
+              ₹19
               <span className="text-base text-slate-400">
                 /month
               </span>
@@ -192,10 +367,12 @@ function Subscribe() {
                 : "border-slate-200 bg-white"
             }`}
           >
-            <p className="text-slate-500">Yearly</p>
+            <p className="text-slate-500">
+              Yearly
+            </p>
 
             <h2 className="text-4xl font-bold mt-2">
-              $190
+              ₹190
               <span className="text-base text-slate-400">
                 /year
               </span>
@@ -226,11 +403,16 @@ function Subscribe() {
 
           <select
             value={charityId}
-            onChange={(e) => setCharityId(e.target.value)}
+            onChange={(e) =>
+              setCharityId(e.target.value)
+            }
             className="w-full mt-6 border border-slate-300 rounded-xl px-4 py-3 bg-white"
           >
             {charities.map((charity) => (
-              <option key={charity.id} value={charity.id}>
+              <option
+                key={charity.id}
+                value={charity.id}
+              >
                 {charity.name}
               </option>
             ))}
@@ -255,7 +437,9 @@ function Subscribe() {
               step="5"
               value={percentage}
               onChange={(e) =>
-                setPercentage(Number(e.target.value))
+                setPercentage(
+                  Number(e.target.value)
+                )
               }
               className="w-full mt-4 accent-emerald-500"
             />
@@ -277,7 +461,9 @@ function Subscribe() {
             </span>
 
             <strong>
-              {plan === "monthly" ? "Monthly" : "Yearly"}
+              {plan === "monthly"
+                ? "Monthly"
+                : "Yearly"}
             </strong>
           </div>
 
@@ -287,7 +473,7 @@ function Subscribe() {
             </span>
 
             <strong>
-              ${amount}
+              ₹{amount}
             </strong>
           </div>
 
@@ -303,13 +489,15 @@ function Subscribe() {
 
           <button
             onClick={handleSubscribe}
-            disabled={saving}
+            disabled={
+              saving || razorpayLoading
+            }
             className="w-full mt-7 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold py-4 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {saving ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Activating...
+                Processing payment...
               </>
             ) : (
               <>

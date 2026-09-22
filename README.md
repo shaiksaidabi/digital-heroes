@@ -1,16 +1,117 @@
-# React + Vite
+# Digital Heroes
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern subscription-based platform that combines golf performance tracking, charitable giving, and monthly reward draws.
 
-Currently, two official plugins are available:
+## 🌐 Live Demo
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+https://digital-heroes-pearl.vercel.app/
 
-## React Compiler
+## ✨ Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 👤 User Features
+- User signup and login
+- Charity selection during signup
+- Monthly and yearly subscriptions
+- Razorpay test-mode payment integration
+- Subscription status and renewal tracking
+- Subscription cancellation
+- Stableford score management
+- Latest 5 scores with date validation
+- Monthly draw participation
+- Draw number matching
+- Winner proof submission
+- Winner verification and payment status
+- Independent charity donations
+- Personal dashboard with live account data
 
-## Expanding the ESLint configuration
+### ❤️ Charity
+- Charity directory
+- Search charities
+- Featured charities
+- Charity profile information
+- Official charity website links
+- Minimum 10% subscription contribution
+- Configurable contribution percentage
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 🎯 Draw System
+- Monthly draws
+- Random number generation
+- Algorithmic/weighted number generation
+- Draw simulation
+- Draw publishing
+- 5, 4 and 3 number match detection
+- Prize pool distribution
+- Jackpot rollover
+- Multiple winner handling
+
+### 🛠️ Admin Features
+- Admin dashboard
+- User and subscription management
+- Charity management
+- Draw creation and simulation
+- Random and algorithmic draw generation
+- Draw publishing
+- Winner verification
+- Winner payment status management
+- Reports and analytics
+
+## 💰 Prize Distribution
+
+| Match | Prize Pool |
+|------|------------|
+| 5 Matches | 40% |
+| 4 Matches | 35% |
+| 3 Matches | 25% |
+
+If there is no 5-match winner, the jackpot amount rolls over to the next draw.
+
+## 🧰 Tech Stack
+
+### Frontend
+- React
+- Vite
+- Tailwind CSS
+- React Router
+- Lucide React
+
+### Backend / Database
+- Supabase
+- PostgreSQL
+- Supabase Authentication
+- Supabase Storage
+- Supabase Edge Functions
+- PostgreSQL Functions and Triggers
+
+### Payments
+- Razorpay Test Mode
+
+### Deployment
+- Vercel
+- GitHub
+
+## 📁 Project Structure
+
+```text
+digital-heroes/
+├── src/
+│   ├── components/
+│   ├── lib/
+│   │   └── supabase.js
+│   ├── pages/
+│   │   ├── AdminDashboard.jsx
+│   │   ├── AdminUsers.jsx
+│   │   ├── AdminCharities.jsx
+│   │   ├── AdminReports.jsx
+│   │   ├── AdminWinners.jsx
+│   │   ├── Dashboard.jsx
+│   │   ├── Scores.jsx
+│   │   ├── Charities.jsx
+│   │   ├── Subscribe.jsx
+│   │   ├── Draws.jsx
+│   │   └── Donate.jsx
+│   ├── App.jsx
+│   └── index.css
+├── .env
+├── package.json
+├── vite.config.js
+└── README.md

@@ -1,7 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { Heart, ArrowRight, Loader2 } from "lucide-react";
+import {
+  Heart,
+  ArrowRight,
+  Loader2,
+  HeartHandshake,
+} from "lucide-react";
 
 function Signup() {
   const navigate = useNavigate();
@@ -11,11 +16,37 @@ function Signup() {
     email: "",
     password: "",
     confirmPassword: "",
+    charityId: "",
   });
 
+  const [charities, setCharities] = useState([]);
+  const [loadingCharities, setLoadingCharities] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    loadCharities();
+  }, []);
+
+  const loadCharities = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("charities")
+        .select("id, name")
+        .eq("active", true)
+        .order("name");
+
+      if (error) throw error;
+
+      setCharities(data || []);
+    } catch (err) {
+      console.error("Charity loading error:", err);
+      setError("Unable to load charities. Please refresh and try again.");
+    } finally {
+      setLoadingCharities(false);
+    }
+  };
 
   const handleChange = (e) => {
     setForm({
@@ -35,6 +66,11 @@ function Signup() {
       return;
     }
 
+    if (!form.charityId) {
+      setError("Please select a charity.");
+      return;
+    }
+
     if (form.password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
@@ -48,12 +84,18 @@ function Signup() {
     try {
       setLoading(true);
 
+      const selectedCharity = charities.find(
+        (charity) => charity.id === form.charityId
+      );
+
       const { data, error } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
         options: {
           data: {
             full_name: form.fullName,
+            charity_id: form.charityId,
+            charity_name: selectedCharity?.name || "",
           },
         },
       });
@@ -162,6 +204,40 @@ function Signup() {
               />
             </div>
 
+            {/* Charity */}
+            <div>
+              <label className="flex items-center gap-2 text-sm font-semibold mb-2">
+                <HeartHandshake className="w-4 h-4 text-emerald-600" />
+                Choose your charity
+              </label>
+
+              <select
+                name="charityId"
+                value={form.charityId}
+                onChange={handleChange}
+                disabled={loadingCharities}
+                className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-white outline-none focus:border-slate-950 focus:ring-2 focus:ring-slate-950/10 disabled:bg-slate-100"
+                required
+              >
+                <option value="">
+                  {loadingCharities
+                    ? "Loading charities..."
+                    : "Select a charity"}
+                </option>
+
+                {charities.map((charity) => (
+                  <option key={charity.id} value={charity.id}>
+                    {charity.name}
+                  </option>
+                ))}
+              </select>
+
+              <p className="text-xs text-slate-500 mt-2">
+                At least 10% of your subscription can support your selected
+                charity.
+              </p>
+            </div>
+
             {/* Password */}
             <div>
               <label className="block text-sm font-semibold mb-2">
@@ -199,7 +275,7 @@ function Signup() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || loadingCharities}
               className="w-full flex items-center justify-center gap-2 bg-slate-950 text-white py-3.5 rounded-xl font-semibold hover:bg-slate-800 transition disabled:opacity-60"
             >
               {loading ? (

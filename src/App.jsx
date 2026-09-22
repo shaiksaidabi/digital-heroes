@@ -9,7 +9,11 @@ import Subscribe from "./pages/Subscribe";
 import Draws from "./pages/Draws";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminWinners from "./pages/AdminWinners";
-
+import ProtectedRoute from "./components/ProtectedRoute";
+import Donate from "./pages/Donate";
+import AdminUsers from "./pages/AdminUsers";
+import AdminCharities from "./pages/AdminCharities";
+import AdminReports from "./pages/AdminReports";
 import {
   ArrowRight,
   Heart,
@@ -385,13 +389,33 @@ function App() {
     <Route path="/signup" element={<Signup />} />
     <Route path="/login" element={<Login />} />
     <Route path="/dashboard" element={<Dashboard />} />
-    <Route path="/scores" element={<Scores />} />
     <Route path="/charities" element={<Charities />} />
     <Route path="/subscribe" element={<Subscribe />} />
-    <Route path="/draws" element={<Draws />} />
     <Route path="/admin" element={<AdminDashboard />} />
     <Route path="/admin-winners" element={<AdminWinners />} />
+    <Route path="/admin-users" element={<AdminUsers />} />
+   <Route path="/admin-charities" element={<AdminCharities />} />
+   <Route path="/admin-reports" element={<AdminReports />} />
+    <Route
+  path="/scores"
+  element={
+    <ProtectedRoute>
+      <Scores />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/draws"
+  element={
+    <ProtectedRoute>
+      <Draws />
+    </ProtectedRoute>
+  }
+/>
+<Route path="/donate" element={<Donate />} />
   </Routes>
+
 </HashRouter>
   );
 }

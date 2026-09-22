@@ -42,20 +42,25 @@ function AdminDashboard() {
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+    const { data: profile, error: profileError } = await supabase
+  .from("profiles")
+  .select("admin")
+  .eq("id", user.id)
+  .single();
 
-      if (profileError) throw profileError;
 
-      if (profile?.role !== "admin") {
-        navigate("/dashboard");
-        return;
-      }
 
-      await loadDraws();
+if (profileError) {
+  setError(profileError.message);
+  return;
+}
+
+if (profile?.admin !== "admin") {
+  setError(`Admin access denied. Current admin value: ${profile?.admin}`);
+  return;
+}
+
+await loadDraws();
     } catch (err) {
       console.error(err);
       navigate("/dashboard");
@@ -78,19 +83,36 @@ function AdminDashboard() {
     setDraws(data || []);
   };
 
-  const generateNumbers = () => {
-    const numbers = [];
+  const generateRandomNumbers = () => {
+  const numbers = [];
 
-    while (numbers.length < 5) {
-      const number = Math.floor(Math.random() * 45) + 1;
+  while (numbers.length < 5) {
+    const number = Math.floor(Math.random() * 45) + 1;
 
-      if (!numbers.includes(number)) {
-        numbers.push(number);
-      }
+    if (!numbers.includes(number)) {
+      numbers.push(number);
     }
+  }
 
-    return numbers.sort((a, b) => a - b);
-  };
+  return numbers.sort((a, b) => a - b);
+};
+
+const generateNumbers = async (drawId = null) => {
+  if (drawType === "algorithmic" && drawId) {
+    const { data, error } = await supabase.rpc(
+      "generate_weighted_draw_numbers",
+      {
+        p_draw_id: drawId,
+      }
+    );
+
+    if (error) throw error;
+
+    return [...data].sort((a, b) => a - b);
+  }
+
+  return generateRandomNumbers();
+};
 
   const createDraw = async () => {
     setSaving(true);
@@ -122,21 +144,31 @@ function AdminDashboard() {
         setError("A draw already exists for this month.");
         return;
       }
+const { data: newDraw, error: insertError } = await supabase
+  .from("draws")
+  .insert({
+    draw_month: drawDate,
+    numbers: [],
+    draw_type: drawType,
+    prize_pool: pool,
+    jackpot_rollover: 0,
+    status: "draft",
+  })
+  .select()
+  .single();
 
-      const numbers = generateNumbers();
+if (insertError) throw insertError;
 
-      const { error: insertError } = await supabase
-        .from("draws")
-        .insert({
-          draw_month: drawDate,
-          numbers,
-          draw_type: drawType,
-          prize_pool: pool,
-          jackpot_rollover: 0,
-          status: "draft",
-        });
+const numbers = await generateNumbers(newDraw.id);
 
-      if (insertError) throw insertError;
+const { error: numberError } = await supabase
+  .from("draws")
+  .update({
+    numbers,
+  })
+  .eq("id", newDraw.id);
+
+if (numberError) throw numberError;
 
       setMessage("Draw created successfully.");
       await loadDraws();
@@ -154,7 +186,7 @@ function AdminDashboard() {
     setError("");
 
     try {
-      const numbers = generateNumbers();
+     const numbers = await generateNumbers(draw.id);
 
       const { error: updateError } = await supabase
         .from("draws")
